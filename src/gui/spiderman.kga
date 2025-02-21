@@ -1,0 +1,135 @@
+// DEBUG_OFF
+
+// Let's set background color to cyan:
+write COLOR_CYAN to DISPLAY_BACKGROUND
+write OP_SET_BACKGROUND_COLOR to REG_OP
+cpu_exec
+
+// Define a bitmap (based on https://pin.it/3WcsRt4xM )
+
+write "cccccccccccccccccccccccccccc" to 198
+write "cccccccccccccccccccccccccccc" to 199
+write "ccccccccccccwcwccccccccccccc" to 200
+write "ccccccccccccwcwccccccccccccc" to 201
+write "ccccccccccccwcwccccccccccccc" to 202
+write "ccccccccccccBcBccccccccccccc" to 203
+write "cccccccccccBrcrBcccccccccccc" to 204
+write "ccccccccccBrrcrrBccccccccccc" to 205
+write "cccccccccBrrrcrrrBcccccccccc" to 206
+write "cccccccBBrrrrcrrrrBBcccccccc" to 207
+write "ccccccBbrrrBBcBBrrrbBccccccc" to 208
+write "cccccBbbbrBbbcbbBrbbbBcccccc" to 209
+write "ccccBbbbbBBBcccBBBbbbbBccccc" to 210
+write "ccccBbbbBrrrBcBrrrBbbbBccccc" to 211
+write "cccccBBBrrrrBrBrrrrBBBcccccc" to 212
+write "cccccccBrrbBrrrBbrrBcccccccc" to 213
+write "ccccccBrrbBbrrrbBbrrBccccccc" to 214
+write "ccccccBrrBbrrBrrbBrrBccccccc" to 215
+write "cccccccBrrrrrrrrrrrBcccccccc" to 216
+write "ccccccccBBrrBBBrrBBccccccccc" to 217
+write "ccccccccccBBrrrBBccccccccccc" to 218
+write "cccccccccBrrrrrrrBcccccccccc" to 219
+write "ccccccccBrrrrrrrrrBccccccccc" to 220  // prev end
+write "cccccccBrrrrrrrrrrrBcccccccc" to 221
+write "cccccccBrrBBrrrBBrrBcccccccc" to 222
+write "cccccccBrBccBrBccBrBcccccccc" to 223
+write "cccccccBrBcBrrrBcBrBcccccccc" to 224
+write "cccccccBrBBrrrrrBBrBcccccccc" to 225
+write "cccccccBrBrrrrrrrBrBcccccccc" to 226
+write "cccccccBrrrrrrrrrrrBcccccccc" to 227
+write "cccccccBrrrrrrrrrrrBcccccccc" to 228
+write "ccccccccBrrrrrrrrrBccccccccc" to 229
+write "cccccccccBBrrrrrBBcccccccccc" to 230
+write "cccccccccccBBBBBcccccccccccc" to 231
+write "cccccccccccccccccccccccccccc" to 232
+write "cccccccccccccccccccccccccccc" to 233
+
+
+var key_input
+var counter
+label start
+    
+    write 198 to var:counter
+    copy var:counter to REG_A
+    write 36 to REG_B
+    write OP_ADD to REG_OP
+    cpu_exec
+    copy var:counter to REG_A
+    copy REG_RES to REG_B
+    write OP_RENDER_BITMAP to REG_OP
+    cpu_exec
+
+    // Read user input
+    write OP_READ_INPUT to REG_OP
+    write KEYBOARD_READ_CHAR_SILENTLY to REG_A
+    cpu_exec
+    copy KEYBOARD_BUFFER to var:key_input
+    write 200 to var:counter
+
+    // Check if input is left ('a')
+    copy var:key_input to REG_A
+    write "a" to REG_B
+    write OP_CMP_EQ to REG_OP
+    cpu_exec
+    jump_if label:shift_left
+
+    // Check if input is right ('d')
+    copy var:key_input to REG_A
+    write "d" to REG_B
+    write OP_CMP_EQ to REG_OP
+    cpu_exec
+    jump_if label:shift_right
+
+    // Check if input is exit ('q')
+    copy var:key_input to REG_A
+    write "q" to REG_B
+    write OP_CMP_EQ to REG_OP
+    cpu_exec
+    jump_if label:exit
+
+    jump label:start
+
+label shift_right
+    write "c" to REG_A
+    copy *var:counter to REG_B
+    write "" to REG_C
+    write OP_CONCAT_WITH to REG_OP
+    cpu_exec
+    copy REG_RES to *var:counter
+
+    copy var:counter to REG_A
+    write OP_INCR to REG_OP
+    cpu_exec
+    copy REG_RES to var:counter
+
+    copy var:counter to REG_A
+    write 232 to REG_B
+    write OP_CMP_LT to REG_OP
+    cpu_exec
+    jump_if label:shift_right
+    jump label:start
+
+label shift_left
+    copy *var:counter to REG_A
+    write 1 to REG_B
+    write "" to REG_C
+    write "" to REG_D
+    write OP_REPLACE_COLUMN to REG_OP
+    cpu_exec
+    copy REG_RES to *var:counter
+
+    copy var:counter to REG_A
+    write OP_INCR to REG_OP
+    cpu_exec
+    copy REG_RES to var:counter
+
+    copy var:counter to REG_A
+    write 232 to REG_B
+    write OP_CMP_LT to REG_OP
+    cpu_exec
+    jump_if label:shift_left
+    jump label:start
+
+label exit
+    write OP_HALT to REG_OP
+    cpu_exec

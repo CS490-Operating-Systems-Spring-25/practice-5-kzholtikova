@@ -1,0 +1,243 @@
+var disk_name
+var partition_name
+var header
+var partition_start
+var partition_end
+var block_start
+var block_end
+
+var counter
+var column_counter
+var num1
+var num2
+
+write "Enter the disk name: " to DISPLAY_BUFFER
+write OP_DISPLAY_LN to REG_OP
+cpu_exec
+write OP_READ_INPUT to REG_OP
+cpu_exec
+copy KEYBOARD_BUFFER to var:disk_name
+
+write "Enter the partition name: " to DISPLAY_BUFFER
+write OP_DISPLAY_LN to REG_OP
+cpu_exec
+write OP_READ_INPUT to REG_OP
+cpu_exec
+copy KEYBOARD_BUFFER to var:partition_name
+
+write 3 to var:counter
+label find_partition
+    copy var:counter to REG_A
+    write OP_INCR to REG_OP
+    cpu_exec
+    copy REG_RES to var:counter
+
+    copy var:disk_name to REG_A
+    copy var:counter to REG_B
+    write OP_READ_BLOCK to REG_OP
+    cpu_exec
+    jump_err label:error
+
+    copy REG_RES to REG_A
+    write "END_PARTITION_TABLE" to REG_B
+    write OP_CMP_EQ to REG_OP
+    cpu_exec
+    jump_if label:invalid_partition
+
+    copy REG_A to var:header
+    write 2 to REG_B
+    write " " to REG_C
+    write OP_GET_COLUMN to REG_OP
+    cpu_exec
+    
+    copy REG_RES to REG_A
+    copy var:partition_name to REG_B
+    write OP_CMP_EQ to REG_OP
+    cpu_exec
+    jump_if_not label:find_partition
+
+    copy var:header to REG_A
+    write 4 to REG_B
+    write OP_GET_COLUMN to REG_OP
+    cpu_exec
+    copy REG_RES to var:partition_start
+    write 6 to REG_B
+    cpu_exec
+    copy REG_RES to var:partition_end
+
+    jump label:validate_partition_header
+
+label validate_partition_header
+    copy var:disk_name to REG_A
+    copy var:partition_start to REG_B
+    write OP_READ_BLOCK to REG_OP
+    cpu_exec
+    jump_err label:error
+    copy REG_RES to var:header
+
+    copy REG_RES to REG_A
+    write "FS_HEADER kagu_fs FIRST_USABLE_BLOCK " to REG_B
+    write OP_STARTS_WITH to REG_OP
+    cpu_exec
+    jump_if_not label:invalid_partition
+
+    write 4 to REG_B
+    write " " to REG_C
+    write OP_GET_COLUMN to REG_OP
+    cpu_exec
+    copy REG_RES to var:block_start
+
+    write 6 to REG_B
+    cpu_exec
+    copy REG_RES to var:block_end
+
+    write 5 to REG_B
+    cpu_exec
+    copy REG_RES to REG_A
+    write "LAST_USABLE_BLOCK" to REG_B
+    write OP_CMP_EQ to REG_OP
+    cpu_exec
+    jump_if_not label:invalid_partition
+
+    copy var:partition_start to REG_A
+    copy var:block_start to REG_B
+    write OP_CMP_LT to REG_OP
+    cpu_exec
+    jump_if_not label:invalid_partition
+
+    copy var:block_end to REG_A
+    copy var:partition_end to REG_B
+    write OP_CMP_LE to REG_OP
+    cpu_exec
+    jump_if_not label:invalid_partition
+    copy var:partition_start to var:counter
+
+label validate_file_headers  // + FS_HEADER_END
+    copy var:counter to REG_A
+    write OP_INCR to REG_OP
+    cpu_exec
+    copy REG_RES to var:counter
+
+    copy var:partition_end to REG_A
+    copy REG_RES to REG_B
+    write OP_CMP_LT to REG_OP
+    cpu_exec
+    jump_if label:invalid_partition
+
+    copy var:disk_name to REG_A
+    copy var:counter to REG_B
+    write OP_READ_BLOCK to REG_OP
+    cpu_exec
+    jump_err label:error
+    copy REG_RES to var:header
+
+    copy REG_RES to REG_A
+    write "" to REG_B
+    write OP_CMP_EQ to REG_OP
+    cpu_exec
+    jump_if label:validate_file_headers
+
+    write "FS_HEADER_END" to REG_B
+    cpu_exec
+    jump_if_not label:validate_file_header
+
+    write "Partition is valid!" to DISPLAY_BUFFER
+    write COLOR_GREEN to DISPLAY_COLOR
+    write OP_DISPLAY_LN to REG_OP
+    cpu_exec
+    jump label:exit
+
+label validate_file_header
+    copy var:header to REG_A
+    write 2 to REG_B
+    write " " to REG_C
+    write OP_GET_COLUMN to REG_OP
+    cpu_exec
+    copy REG_RES to var:num1
+    write 3 to REG_B
+    cpu_exec
+    copy REG_RES to var:num2
+
+    write 4 to REG_B
+    cpu_exec
+    copy REG_RES to REG_A
+    write 7 to REG_B
+    write OP_CMP_LE to REG_OP
+    cpu_exec
+    jump_if_not label:invalid_partition
+
+    copy var:num1 to REG_A
+    cpu_exec
+    jump_if_not label:invalid_partition
+    copy var:num2 to REG_A
+    cpu_exec
+    jump_if_not label:invalid_partition
+
+    copy var:header to REG_A
+    write 7 to REG_B
+    write OP_GET_COLUMN to REG_OP
+    cpu_exec
+    copy REG_RES to REG_A
+    write "BLOCKS" to REG_B
+    write OP_CMP_EQ to REG_OP
+    cpu_exec
+    jump_if_not label:invalid_partition
+
+    write 8 to var:column_counter
+    jump label:validate_file_blocks
+
+label validate_file_blocks
+    copy var:header to REG_A
+    copy var:column_counter to REG_B
+    write OP_GET_COLUMN to REG_OP
+    cpu_exec
+    copy REG_RES to var:num1
+
+    copy var:column_counter to REG_A
+    write OP_INCR to REG_OP
+    cpu_exec
+    copy REG_RES to var:column_counter
+
+    copy var:header to REG_A
+    copy var:column_counter to REG_B
+    write OP_GET_COLUMN to REG_OP
+    cpu_exec
+    copy REG_RES to var:num2
+
+    copy var:num1 to REG_A
+    write "" to REG_B
+    write OP_CMP_EQ to REG_OP
+    cpu_exec
+    jump label:validate_file_headers
+
+    copy var:num2 to REG_A
+    cpu_exec
+    jump_if label:invalid_partition
+
+    copy var:num1 to REG_A
+    copy var:num2 to REG_B
+    write OP_CMP_LT to REG_OP
+    cpu_exec
+    jump_if_not label:invalid_partition
+
+    copy var:column_counter to REG_A
+    write OP_INCR to REG_OP
+    cpu_exec
+    copy REG_RES to var:column_counter
+    jump label:validate_file_blocks
+    
+label invalid_partition
+    write "Partition is invalid." to DISPLAY_BUFFER
+    write COLOR_RED to DISPLAY_COLOR
+    write OP_DISPLAY_LN to REG_OP
+    cpu_exec
+
+label error
+    copy REG_ERROR to DISPLAY_BUFFER
+    write COLOR_RED to DISPLAY_COLOR
+    write OP_DISPLAY_LN to REG_OP
+    cpu_exec
+
+label exit
+    write OP_HALT to REG_OP
+    cpu_exec
